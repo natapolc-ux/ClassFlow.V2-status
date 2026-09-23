@@ -7,23 +7,25 @@ async function get(params) {
   const r=await fetch(API_URL+'?'+query(params)), data=await r.json(); if(!data.ok)throw new Error(data.error||'โหลดข้อมูลไม่สำเร็จ'); return data;
 }
 async function init() {
-  try { meta=await get({action:'publicStatus'}); fillLevels(); render([]); } catch(e){ $('message').textContent=e.message; }
+  try { meta=await get({action:'publicStatus'}); fillLevels(); render([],[]); } catch(e){ $('message').textContent=e.message; }
 }
-function fillLevels(){
-  $('level').innerHTML='<option value="">เลือกระดับชั้น</option>'+meta.levels.map(x=>'<option>'+esc(x)+'</option>').join('');
-}
+function fillLevels(){ $('level').innerHTML='<option value="">เลือกระดับชั้น</option>'+meta.levels.map(x=>'<option>'+esc(x)+'</option>').join(''); }
 function levelChanged(){
-  const l=$('level').value, rooms=meta.classesByLevel[l]||[];
+  const rooms=meta.classesByLevel[$('level').value]||[];
   $('className').innerHTML='<option value="">เลือกห้อง</option>'+rooms.map(x=>'<option>'+esc(x)+'</option>').join('');
 }
 async function searchStatus(){
-  const level=$('level').value, className=$('className').value, studentId=$('studentId').value.trim();
+  const level=$('level').value, className=$('className').value, search=$('studentSearch').value.trim();
   if(!level||!className){$('message').textContent='กรุณาเลือกระดับชั้นและห้อง';return;}
   $('message').textContent='กำลังโหลด...';
-  try { const d=await get({action:'publicStatus',level,className,studentId}); render(d.rows||[]); $('message').textContent=d.rows.length?'':'ไม่พบข้อมูล'; }
+  try { const d=await get({action:'publicStatus',level,className,search}); render(d.assignments||[],d.rows||[]); $('message').textContent=d.rows.length?`พบ ${d.rows.length} คน`:'ไม่พบข้อมูล'; }
   catch(e){$('message').textContent=e.message;}
 }
-function render(rows){
-  $('results').innerHTML=rows.map(r=>`<section class="card"><h2>เลขที่ ${esc(r.student.No)} — ${esc(r.student.Name)}</h2><div class="room">${esc(r.student.Level)} / ${esc(r.student.ClassName)}</div><div class="table-wrap"><table><thead><tr><th>งาน</th><th>สถานะ</th></tr></thead><tbody>${r.works.map(w=>`<tr><td>${esc(w.Topic)}</td><td><span class="status ${w.status==='ตรวจแล้ว'?'checked':w.status==='ส่งแล้ว'?'sent':'missing'}">${esc(w.status)}</span></td></tr>`).join('')}</tbody></table></div></section>`).join('');
+function statusClass(status){ return status==='ตรวจแล้ว'?'checked':status==='ส่งแล้ว'?'sent':'missing'; }
+function render(assignments,rows){
+  if(!rows.length){$('results').innerHTML='';return;}
+  const headers=assignments.map(a=>`<th class="assignment">${esc(a.Topic)}</th>`).join('');
+  const body=rows.map(r=>`<tr><td class="sticky no">${esc(r.student.No)}</td><td class="sticky name"><b>${esc(r.student.Name)}</b><small>${esc(r.student.UserID)}</small></td>${(r.statuses||[]).map(s=>`<td><span class="status ${statusClass(s)}">${esc(s)}</span></td>`).join('')}</tr>`).join('');
+  $('results').innerHTML=`<div class="table-wrap"><table><thead><tr><th class="sticky no">เลขที่</th><th class="sticky name">ชื่อ–นามสกุล</th>${headers}</tr></thead><tbody>${body}</tbody></table></div>`;
 }
 window.addEventListener('load',init);
